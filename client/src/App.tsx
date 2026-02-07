@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import ProjectsPage from "@/pages/projects";
 import ProjectTasksPage from "@/pages/tasks";
 import TeamPage from "@/pages/team";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -63,6 +64,10 @@ function Router() {
 
       <Route path="/team">
         <ProtectedRoute component={TeamPage} />
+      </Route>
+
+      <Route path="/settings">
+        <ProtectedRoute component={SettingsPage} />
       </Route>
 
       <Route component={NotFound} />
