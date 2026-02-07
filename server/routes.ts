@@ -63,7 +63,12 @@ export async function registerRoutes(
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      if (user) {
+        const { password, ...safeUser } = user;
+        done(null, safeUser);
+      } else {
+        done(null, null);
+      }
     } catch (err) {
       done(err);
     }

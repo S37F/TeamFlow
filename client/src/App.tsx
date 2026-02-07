@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
@@ -17,6 +18,12 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setLocation("/auth/login");
+    }
+  }, [user, isLoading, setLocation]);
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
@@ -26,7 +33,6 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!user) {
-    setLocation("/auth/login");
     return null;
   }
 
