@@ -41,12 +41,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createUser(insertUser: any): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
-  async createOrganization(insertOrg: InsertOrganization): Promise<Organization> {
+  async createOrganization(insertOrg: any): Promise<Organization> {
     const [org] = await db.insert(organizations).values(insertOrg).returning();
     return org;
   }
@@ -60,7 +60,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).where(eq(users.organizationId, orgId));
   }
 
-  async createProject(insertProject: InsertProject): Promise<Project> {
+  async createProject(insertProject: any): Promise<Project> {
     const [project] = await db.insert(projects).values(insertProject).returning();
     return project;
   }
@@ -74,7 +74,7 @@ export class DatabaseStorage implements IStorage {
     return project;
   }
 
-  async createTask(insertTask: InsertTask): Promise<Task> {
+  async createTask(insertTask: any): Promise<Task> {
     const [task] = await db.insert(tasks).values(insertTask).returning();
     return task;
   }
