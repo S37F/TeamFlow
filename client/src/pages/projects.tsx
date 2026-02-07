@@ -57,11 +57,11 @@ export default function ProjectsPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Create Project</DialogTitle>
-                <DialogDescription>
-                  Create a new workspace for your team to collaborate.
-                </DialogDescription>
-              </DialogHeader>
+              <DialogTitle id="create-project-title">Create Project</DialogTitle>
+              <DialogDescription id="create-project-description">
+                Create a new workspace for your team to collaborate.
+              </DialogDescription>
+            </DialogHeader>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Project Name</Label>

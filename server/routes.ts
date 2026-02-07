@@ -150,7 +150,8 @@ export async function registerRoutes(
   });
 
   app.get(api.projects.get.path, requireAuth, async (req, res) => {
-    const project = await storage.getProject(Number(req.params.id));
+    const id = z.coerce.number().parse(req.params.id);
+    const project = await storage.getProject(id);
     if (!project || project.organizationId !== req.user!.organizationId) {
       return res.sendStatus(404);
     }
@@ -158,22 +159,25 @@ export async function registerRoutes(
   });
 
   app.get(api.tasks.list.path, requireAuth, async (req, res) => {
-    const tasks = await storage.getTasks(Number(req.params.projectId));
+    const projectId = z.coerce.number().parse(req.params.projectId);
+    const tasks = await storage.getTasks(projectId);
     res.json(tasks);
   });
 
   app.post(api.tasks.create.path, requireAuth, async (req, res) => {
+    const projectId = z.coerce.number().parse(req.params.projectId);
     const input = api.tasks.create.input.parse(req.body);
     const task = await storage.createTask({
       ...input,
-      projectId: Number(req.params.projectId),
+      projectId: projectId,
       organizationId: req.user!.organizationId!
     });
     res.status(201).json(task);
   });
 
   app.patch(api.tasks.update.path, requireAuth, async (req, res) => {
-    const task = await storage.updateTask(Number(req.params.id), req.body);
+    const id = z.coerce.number().parse(req.params.id);
+    const task = await storage.updateTask(id, req.body);
     res.json(task);
   });
 

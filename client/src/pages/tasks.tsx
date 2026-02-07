@@ -122,7 +122,10 @@ export default function ProjectTasksPage() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add New Task</DialogTitle>
+                  <DialogTitle id="add-task-title">Add New Task</DialogTitle>
+                  <DialogDescription id="add-task-description">
+                    Fill in the details below to create a new task for this project.
+                  </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
                   <div className="space-y-2">
