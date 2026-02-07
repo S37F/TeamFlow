@@ -131,17 +131,18 @@ export async function registerRoutes(
 
   // === APP ROUTES ===
   app.get(api.projects.list.path, requireAuth, async (req, res) => {
-    // Scope to user's organization
-    const projects = await storage.getProjects(req.user!.organizationId!);
+    const user = req.user as any;
+    const projects = await storage.getProjects(user.organizationId);
     res.json(projects);
   });
 
   app.post(api.projects.create.path, requireAuth, async (req, res) => {
     try {
+      const user = req.user as any;
       const input = api.projects.create.input.parse(req.body);
       const project = await storage.createProject({
         ...input,
-        organizationId: req.user!.organizationId!
+        organizationId: user.organizationId
       });
       res.status(201).json(project);
     } catch (err) {
@@ -150,9 +151,10 @@ export async function registerRoutes(
   });
 
   app.get(api.projects.get.path, requireAuth, async (req, res) => {
+    const user = req.user as any;
     const id = z.coerce.number().parse(req.params.id);
     const project = await storage.getProject(id);
-    if (!project || project.organizationId !== req.user!.organizationId) {
+    if (!project || project.organizationId !== user.organizationId) {
       return res.sendStatus(404);
     }
     res.json(project);
@@ -165,12 +167,13 @@ export async function registerRoutes(
   });
 
   app.post(api.tasks.create.path, requireAuth, async (req, res) => {
+    const user = req.user as any;
     const projectId = z.coerce.number().parse(req.params.projectId);
     const input = api.tasks.create.input.parse(req.body);
     const task = await storage.createTask({
       ...input,
       projectId: projectId,
-      organizationId: req.user!.organizationId!
+      organizationId: user.organizationId
     });
     res.status(201).json(task);
   });
@@ -182,12 +185,14 @@ export async function registerRoutes(
   });
 
   app.get(api.organization.get.path, requireAuth, async (req, res) => {
-    const org = await storage.getOrganization(req.user!.organizationId!);
+    const user = req.user as any;
+    const org = await storage.getOrganization(user.organizationId);
     res.json(org);
   });
 
   app.get(api.organization.members.path, requireAuth, async (req, res) => {
-    const members = await storage.getOrganizationMembers(req.user!.organizationId!);
+    const user = req.user as any;
+    const members = await storage.getOrganizationMembers(user.organizationId);
     res.json(members);
   });
 

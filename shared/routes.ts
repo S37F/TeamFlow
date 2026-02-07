@@ -144,3 +144,8 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+export type LoginRequest = z.infer<typeof loginSchema>;
+export type SignupRequest = z.infer<typeof signupSchema>;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type InsertTask = z.infer<typeof insertTaskSchema>;

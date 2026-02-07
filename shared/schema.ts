@@ -23,7 +23,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role", { enum: userRoles }).default("member").notNull(),
-  organizationId: integer("organization_id").references(() => organizations.id),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
