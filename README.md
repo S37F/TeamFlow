@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="client/public/favicon.png" alt="TeamFlow" width="80" height="80" />
+  <img src="client/public/favicon.svg" alt="TeamFlow" width="80" height="80" />
 </p>
 
 <h1 align="center">TeamFlow</h1>
