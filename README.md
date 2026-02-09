@@ -1,118 +1,286 @@
-# TeamFlow - Multi-Tenant SaaS Platform
+<p align="center">
+  <img src="client/public/favicon.png" alt="TeamFlow" width="80" height="80" />
+</p>
+
+<h1 align="center">TeamFlow</h1>
+
+<p align="center">
+  <strong>Multi-tenant SaaS platform for team & project management</strong>
+</p>
+
+<p align="center">
+  <a href="https://teamflow-saas.onrender.com">Live Demo</a> &nbsp;&bull;&nbsp;
+  <a href="#getting-started">Getting Started</a> &nbsp;&bull;&nbsp;
+  <a href="#deployment">Deploy</a> &nbsp;&bull;&nbsp;
+  <a href="#api-reference">API</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white" alt="Express" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
+</p>
+
+---
 
 ## Overview
 
-TeamFlow is a multi-tenant SaaS platform for team and project management. Organizations can register, manage teams, create projects, and track tasks. The app follows a modular monolith architecture with a React frontend and Express backend, using PostgreSQL for data storage.
+TeamFlow is a production-ready, multi-tenant SaaS application where organizations can manage teams, projects, and tasks — all from a single platform. Each organization's data is fully isolated at the query level, with role-based access control (Owner / Admin / Member) and real-time updates via WebSockets.
 
-## User Preferences
+### Key Features
 
-Preferred communication style: Simple, everyday language.
+- **Multi-Tenancy** — Organization-scoped data isolation (shared database, row-level filtering)
+- **Authentication** — JWT access + refresh tokens with httpOnly cookies and automatic token rotation
+- **Role-Based Access** — Owner, Admin, Member roles with permission-gated operations
+- **Project Management** — Create projects, assign team members, track progress
+- **Task Tracking** — Kanban board with drag-and-drop, priority levels, status tracking
+- **Team Management** — Invite members, manage roles, soft-delete users
+- **Real-Time Updates** — Socket.io with organization-scoped rooms
+- **Dark Mode** — Full light/dark theme support
+- **Production Hardened** — Rate limiting, security headers, CORS, compression, structured logging
 
-## System Architecture
+---
 
-### Frontend
-- **Framework**: React with TypeScript, bundled by Vite
-- **Routing**: Wouter (lightweight client-side router)
-- **State/Data Fetching**: TanStack React Query for server state management
-- **UI Components**: shadcn/ui (new-york style) built on Radix UI primitives with Tailwind CSS
-- **Forms**: React Hook Form with Zod validation via `@hookform/resolvers`
-- **Styling**: Tailwind CSS with CSS variables for theming (light/dark mode support)
-- **Path aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`
-- **Key pages**: Auth (login/signup), Dashboard, Projects, Tasks (with Kanban board view), Team management
-- **Layout**: Sidebar navigation shell (`LayoutShell` component) wrapping authenticated pages
+## Tech Stack
 
-### Backend
-- **Framework**: Express 5 on Node.js with TypeScript (run via `tsx`)
-- **Authentication**: Session-based auth using Passport.js with Local Strategy, passwords hashed with scrypt
-- **Session Store**: MemoryStore (development); connect-pg-simple available for production
-- **API Design**: RESTful API under `/api/` prefix with typed route definitions in `shared/routes.ts`
-- **Shared Contract**: Zod schemas in `shared/schema.ts` and `shared/routes.ts` provide a typed contract between frontend and backend — both sides validate using the same schemas
-- **Build**: Custom build script using esbuild for server and Vite for client; production output goes to `dist/`
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, Radix UI |
+| **Routing** | Wouter (client), Express 5 (server) |
+| **State** | TanStack React Query |
+| **Backend** | Node.js 20+, Express 5, TypeScript |
+| **Database** | PostgreSQL 16, Drizzle ORM |
+| **Auth** | JWT (access + refresh tokens), scrypt password hashing |
+| **Real-Time** | Socket.io |
+| **Validation** | Zod (shared schemas between client & server) |
+| **Testing** | Vitest (48 tests — server + client) |
+| **Deployment** | Docker, Render.com |
 
-### Database
-- **Database**: PostgreSQL (required via `DATABASE_URL` environment variable)
-- **ORM**: Drizzle ORM with `drizzle-zod` for automatic Zod schema generation from table definitions
-- **Schema Push**: Use `npm run db:push` (drizzle-kit push) to sync schema to database — no migration files needed for development
-- **Tables**:
-  - `organizations` — multi-tenant root entity with subscription tiers (free/pro/enterprise) and optional Stripe customer ID
-  - `users` — belong to an organization, have roles (owner/admin/member)
-  - `projects` — belong to an organization
-  - `tasks` — belong to a project and organization, optionally assigned to a user, with status (todo/in_progress/done)
-- **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
+---
 
-### Multi-Tenancy
-- Data isolation enforced at the application/query level — all organizations share the same database
-- Organization ID is used to scope queries for projects, tasks, and team members
-- Subscription tier stored on the organization controls feature access
+## Architecture
 
-### Authentication Flow
-- Session-based with httpOnly cookies (`credentials: "include"` on fetch calls)
-- Signup creates both a user and an organization
-- Protected routes on the frontend redirect to `/auth/login` when not authenticated
-- Backend validates sessions via Passport middleware
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client (React)                       │
+│  Auth ─ Dashboard ─ Projects ─ Tasks (Kanban) ─ Team ─ Settings  │
+└────────────────────────┬────────────────────────────────────┘
+                         │ REST API + WebSocket
+┌────────────────────────┴────────────────────────────────────┐
+│                     Server (Express 5)                      │
+│  Middleware: Auth │ Rate Limit │ CORS │ Helmet │ Compression │
+│  Routes: /api/auth │ /api/user │ /api/projects │ /api/tasks │
+│  Socket.io: org-scoped real-time events                     │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Drizzle ORM
+┌────────────────────────┴────────────────────────────────────┐
+│                    PostgreSQL 16                            │
+│  organizations │ users │ projects │ tasks │ refresh_tokens  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Development vs Production
-- **Dev**: `npm run dev` — runs tsx with Vite dev server middleware for HMR
-- **Build**: `npm run build` — Vite builds client to `dist/public`, esbuild bundles server to `dist/index.cjs`
-- **Production**: `npm start` — serves static files from `dist/public` with Express
-
-## External Dependencies
-
-- **PostgreSQL**: Required. Must be provisioned and `DATABASE_URL` set in environment
-- **Stripe**: Schema includes `stripeCustomerId` on organizations; Stripe package is in the build allowlist but integration appears to be in early stages
-- **No external auth providers**: Authentication is fully self-contained using Passport Local Strategy
-- **Session Secret**: Set via `SESSION_SECRET` environment variable (falls back to `dev_secret_key` in development)
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- PostgreSQL database
 
-### Environment Variables
-Create a `.env` file with:
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/teamflow
-SESSION_SECRET=your_secret_key_here
-PORT=5000
-NODE_ENV=development
-```
+- **Node.js** 20+
+- **PostgreSQL** 16+ (or use Docker)
 
-### Installation
+### 1. Clone & Install
 
 ```bash
-# Install dependencies
+git clone https://github.com/S37F/TeamFlow.git
+cd TeamFlow
 npm install
+```
 
-# Push database schema
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/teamflow
+JWT_ACCESS_SECRET=    # generate: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+JWT_REFRESH_SECRET=   # generate: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+### 3. Push Database Schema
+
+```bash
 npm run db:push
+```
 
-# Start development server
+### 4. Start Development Server
+
+```bash
 npm run dev
 ```
 
-### Build for Production
+Open **http://localhost:5000** — register an account to get started.
+
+---
+
+## Docker
+
+Run the full stack (app + PostgreSQL) with a single command:
 
 ```bash
-# Build both client and server
-npm run build
+# Start everything
+docker compose up -d --build
 
-# Start production server
-npm start
+# Push schema to the database
+npm run db:push
+
+# View logs
+docker compose logs -f app
+
+# Stop
+docker compose down
 ```
 
-## Features
+---
 
-- Multi-tenant organization management
-- User authentication with role-based access (owner/admin/member)
-- Project creation and management
-- Task tracking with Kanban board view
-- Team member management
-- Subscription tier support (free/pro/enterprise)
+## Scripts
 
-## Tech Stack
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server with HMR |
+| `npm run build` | Build client (Vite) + server (esbuild) |
+| `npm start` | Run production server |
+| `npm test` | Run all tests (server + client) |
+| `npm run test:server` | Run server tests only |
+| `npm run test:client` | Run client tests only |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run db:push` | Push schema to database |
+| `npm run db:studio` | Open Drizzle Studio (database GUI) |
+| `npm run db:generate` | Generate migration files |
+| `npm run db:migrate` | Run pending migrations |
 
-- **Frontend**: React, TypeScript, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui
-- **Backend**: Express, Node.js, TypeScript, Passport.js
-- **Database**: PostgreSQL, Drizzle ORM
-- **Development**: tsx, esbuild
+---
+
+## API Reference
+
+All endpoints are under `/api`. Authentication uses JWT Bearer tokens via httpOnly cookies.
+
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/register` | Register user + organization |
+| `POST` | `/api/auth/login` | Login, returns access token + sets refresh cookie |
+| `POST` | `/api/auth/refresh` | Refresh access token |
+| `POST` | `/api/auth/logout` | Revoke tokens and clear cookies |
+| `GET` | `/api/user` | Get current authenticated user |
+
+### Projects
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/projects` | List projects (org-scoped) |
+| `POST` | `/api/projects` | Create project |
+| `PATCH` | `/api/projects/:id` | Update project |
+| `DELETE` | `/api/projects/:id` | Soft-delete project |
+
+### Tasks
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/tasks` | List tasks (org-scoped, filterable by project) |
+| `POST` | `/api/tasks` | Create task |
+| `PATCH` | `/api/tasks/:id` | Update task (status, assignee, etc.) |
+| `DELETE` | `/api/tasks/:id` | Soft-delete task |
+
+### Team
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/team` | List team members |
+| `POST` | `/api/team/invite` | Invite member (admin/owner only) |
+| `PATCH` | `/api/team/:id/role` | Change member role |
+| `DELETE` | `/api/team/:id` | Remove member |
+
+### Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Basic health check |
+| `GET` | `/ready` | Readiness check (includes DB connectivity) |
+
+---
+
+## Project Structure
+
+```
+TeamFlow/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/     # UI components (shadcn/ui + custom)
+│   │   ├── hooks/          # Custom hooks (auth, tasks, projects, socket)
+│   │   ├── lib/            # API client, query config, utilities
+│   │   └── pages/          # Route pages
+│   └── index.html
+├── server/                 # Express backend
+│   ├── middleware/          # Auth, security, rate limiting, health checks
+│   ├── db.ts               # Database connection
+│   ├── routes.ts           # All API routes
+│   ├── storage.ts          # Data access layer (IStorage interface)
+│   ├── socket.ts           # WebSocket server
+│   └── index.ts            # Server entry point
+├── shared/                 # Shared between client & server
+│   ├── schema.ts           # Drizzle table definitions + Zod schemas
+│   └── routes.ts           # Typed API route contracts
+├── tests/                  # Test setup files
+├── docker-compose.yml      # Docker orchestration
+├── Dockerfile              # Multi-stage production build
+├── render.yaml             # Render.com deployment blueprint
+└── .env.example            # Environment template
+```
+
+---
+
+## Deployment
+
+### Render.com (Recommended)
+
+The repo includes a `render.yaml` blueprint for one-click deployment:
+
+1. Fork this repo
+2. Go to [render.com/deploy](https://render.com/deploy)
+3. Connect your GitHub repo — Render auto-detects `render.yaml`
+4. Set `ALLOWED_ORIGINS` and `APP_URL` to your Render URL after deploy
+5. Push the schema: `DATABASE_URL="<external-url>?sslmode=require" npx drizzle-kit push`
+
+### Docker (Self-Hosted)
+
+```bash
+docker compose up -d --build
+npm run db:push
+```
+
+---
+
+## Security
+
+- **JWT tokens** — Short-lived access tokens (15 min) + long-lived refresh tokens (7 days)
+- **Password hashing** — scrypt with random salt
+- **Rate limiting** — Per-IP rate limits on auth endpoints
+- **Security headers** — Helmet.js (CSP, HSTS, X-Frame-Options, etc.)
+- **CORS** — Configurable allowed origins, restricted in production
+- **httpOnly cookies** — Refresh tokens stored in secure, httpOnly cookies
+- **Soft deletes** — Data is never permanently removed
+- **Input validation** — Zod schemas validate all inputs on both client and server
+
+---
+
+## License
+
+[MIT](LICENSE)
