@@ -1,0 +1,39 @@
+# Logs
+logs/
+*.log
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Testing
+coverage/
+*.test.ts
+*.test.tsx
+tests/
+
+# Misc
+.cache/
+temp/
+tmp/
+cookies.txt
+*.tsbuildinfo

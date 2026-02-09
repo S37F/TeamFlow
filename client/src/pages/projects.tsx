@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { LayoutShell } from "@/components/layout-shell";
 import { useProjects } from "@/hooks/use-projects";
 import { insertProjectSchema } from "@shared/schema";
+import type { Project } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,15 +18,58 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-import { Plus, Folder, Calendar } from "lucide-react";
+import { Plus, Folder, Calendar, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/api";
 
 export default function ProjectsPage() {
-  const { projects, isLoading, createProject } = useProjects();
+  const { projects, isLoading, createProject, updateProject, deleteProject } = useProjects();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
+  const [deletingProject, setDeletingProject] = useState<any>(null);
+
+  // Fetch all org tasks for progress calculation
+  const { data: allTasks } = useQuery({
+    queryKey: ["/api/organization/tasks"],
+    queryFn: async () => {
+      const res = await authFetch("/api/organization/tasks");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const getProjectProgress = (projectId: number) => {
+    const projectTasks = allTasks?.filter((t: any) => t.projectId === projectId) || [];
+    if (projectTasks.length === 0) return { percent: 0, done: 0, total: 0 };
+    const done = projectTasks.filter((t: any) => t.status === "done").length;
+    return { percent: Math.round((done / projectTasks.length) * 100), done, total: projectTasks.length };
+  };
 
   const form = useForm({
+    resolver: zodResolver(insertProjectSchema),
+    defaultValues: { name: "", description: "" }
+  });
+
+  const editForm = useForm({
     resolver: zodResolver(insertProjectSchema),
     defaultValues: { name: "", description: "" }
   });
@@ -37,6 +81,42 @@ export default function ProjectsPage() {
         form.reset();
       }
     });
+  };
+
+  const onEditSubmit = (data: any) => {
+    if (!editingProject) return;
+    updateProject.mutate(
+      { id: editingProject.id, ...data },
+      {
+        onSuccess: () => {
+          setIsEditDialogOpen(false);
+          setEditingProject(null);
+          editForm.reset();
+        }
+      }
+    );
+  };
+
+  const handleEdit = (project: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingProject(project);
+    editForm.reset({ name: project.name, description: project.description || "" });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (project: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeletingProject(project);
+  };
+
+  const confirmDelete = () => {
+    if (deletingProject) {
+      deleteProject.mutate(deletingProject.id, {
+        onSuccess: () => setDeletingProject(null)
+      });
+    }
   };
 
   return (
@@ -96,14 +176,40 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects?.map((project) => (
-              <Link key={project.id} href={`/projects/${project.id}/tasks`}>
+            {projects?.map((project: Project) => {
+              const progress = getProjectProgress(project.id);
+              return (
+              <div key={project.id} className="relative group">
+                <Link href={`/projects/${project.id}/tasks`}>
                 <Card className="h-full flex flex-col hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer group">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                         <Folder className="w-5 h-5" />
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleEdit(project, e as any)} className="cursor-pointer">
+                            <Edit className="w-4 h-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => handleDelete(project, e as any)}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                     <CardTitle className="mt-4 text-xl">{project.name}</CardTitle>
                     <CardDescription className="line-clamp-2">
@@ -111,14 +217,16 @@ export default function ProjectsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-1">
-                    {/* Progress bar placeholder - could be real data later */}
                     <div className="space-y-2 mt-2">
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Progress</span>
-                        <span>0%</span>
+                        <span>{progress.done}/{progress.total} tasks done</span>
+                        <span>{progress.percent}%</span>
                       </div>
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                        <div className="h-full bg-primary w-0" />
+                        <div 
+                          className="h-full bg-primary transition-all duration-500" 
+                          style={{ width: `${progress.percent}%` }} 
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -128,7 +236,9 @@ export default function ProjectsPage() {
                   </CardFooter>
                 </Card>
               </Link>
-            ))}
+              </div>
+              );
+            })}
             
             {projects?.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-xl bg-muted/5">
@@ -145,6 +255,56 @@ export default function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update the project details.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Project Name</Label>
+              <Input id="edit-name" {...editForm.register("name")} />
+              {editForm.formState.errors.name && (
+                <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea id="edit-description" {...editForm.register("description")} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={updateProject.isPending}>
+                {updateProject.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingProject} onOpenChange={() => setDeletingProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingProject?.name}"? All tasks in this project will also be deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </LayoutShell>
   );
 }

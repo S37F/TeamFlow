@@ -2,7 +2,7 @@
 
 ## Overview
 
-TeamFlow is a multi-tenant SaaS platform for team and project management. Organizations can register, manage teams, create projects, and track tasks. The app follows a modular monolith architecture with a React frontend and Express backend, using PostgreSQL for data storage. It's designed to simulate a production-grade startup backend with multi-tenancy, subscription tiers, and role-based access.
+TeamFlow is a multi-tenant SaaS platform for team and project management. Organizations can register, manage teams, create projects, and track tasks. The app follows a modular monolith architecture with a React frontend and Express backend, using PostgreSQL for data storage.
 
 ## User Preferences
 
@@ -60,6 +60,59 @@ Preferred communication style: Simple, everyday language.
 
 - **PostgreSQL**: Required. Must be provisioned and `DATABASE_URL` set in environment
 - **Stripe**: Schema includes `stripeCustomerId` on organizations; Stripe package is in the build allowlist but integration appears to be in early stages
-- **Replit Plugins**: Vite plugins for runtime error overlay, cartographer, and dev banner (only active in Replit development environment)
 - **No external auth providers**: Authentication is fully self-contained using Passport Local Strategy
 - **Session Secret**: Set via `SESSION_SECRET` environment variable (falls back to `dev_secret_key` in development)
+
+## Getting Started
+
+### Prerequisites
+- Node.js 20+
+- PostgreSQL database
+
+### Environment Variables
+Create a `.env` file with:
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/teamflow
+SESSION_SECRET=your_secret_key_here
+PORT=5000
+NODE_ENV=development
+```
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Push database schema
+npm run db:push
+
+# Start development server
+npm run dev
+```
+
+### Build for Production
+
+```bash
+# Build both client and server
+npm run build
+
+# Start production server
+npm start
+```
+
+## Features
+
+- Multi-tenant organization management
+- User authentication with role-based access (owner/admin/member)
+- Project creation and management
+- Task tracking with Kanban board view
+- Team member management
+- Subscription tier support (free/pro/enterprise)
+
+## Tech Stack
+
+- **Frontend**: React, TypeScript, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui
+- **Backend**: Express, Node.js, TypeScript, Passport.js
+- **Database**: PostgreSQL, Drizzle ORM
+- **Development**: tsx, esbuild

@@ -1,136 +1,151 @@
-import { z } from 'zod';
+import { z } from "zod";
 import { 
   insertProjectSchema, 
   insertTaskSchema, 
-  projects, 
-  tasks, 
-  users, 
-  organizations, 
   signupSchema,
   loginSchema
-} from './schema';
+} from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
-    message: z.string(),
-    field: z.string().optional(),
+    error: z.string(),
+    code: z.string(),
   }),
   notFound: z.object({
-    message: z.string(),
+    error: z.string(),
+    code: z.string(),
   }),
   unauthorized: z.object({
-    message: z.string(),
+    error: z.string(),
+    code: z.string(),
   }),
   internal: z.object({
-    message: z.string(),
+    error: z.string(),
+    code: z.string(),
   }),
 };
 
 export const api = {
   auth: {
     signup: {
-      method: 'POST' as const,
-      path: '/api/auth/register' as const,
+      method: "POST" as const,
+      path: "/api/auth/register" as const,
       input: signupSchema,
       responses: {
-        201: z.custom<typeof users.$inferSelect>(),
+        201: z.object({ user: z.any(), accessToken: z.string() }),
         400: errorSchemas.validation,
       },
     },
     login: {
-      method: 'POST' as const,
-      path: '/api/auth/login' as const,
+      method: "POST" as const,
+      path: "/api/auth/login" as const,
       input: loginSchema,
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.object({ user: z.any(), accessToken: z.string() }),
+        401: errorSchemas.unauthorized,
+      },
+    },
+    refresh: {
+      method: "POST" as const,
+      path: "/api/auth/refresh" as const,
+      responses: {
+        200: z.object({ user: z.any(), accessToken: z.string() }),
         401: errorSchemas.unauthorized,
       },
     },
     logout: {
-      method: 'POST' as const,
-      path: '/api/auth/logout' as const,
+      method: "POST" as const,
+      path: "/api/auth/logout" as const,
       responses: {
         200: z.void(),
       },
     },
     me: {
-      method: 'GET' as const,
-      path: '/api/user' as const,
+      method: "GET" as const,
+      path: "/api/user" as const,
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.any(),
         401: errorSchemas.unauthorized,
       },
     },
   },
   projects: {
     list: {
-      method: 'GET' as const,
-      path: '/api/projects' as const,
+      method: "GET" as const,
+      path: "/api/projects" as const,
       responses: {
-        200: z.array(z.custom<typeof projects.$inferSelect>()),
+        200: z.array(z.any()),
       },
     },
     create: {
-      method: 'POST' as const,
-      path: '/api/projects' as const,
+      method: "POST" as const,
+      path: "/api/projects" as const,
       input: insertProjectSchema,
       responses: {
-        201: z.custom<typeof projects.$inferSelect>(),
+        201: z.any(),
         400: errorSchemas.validation,
       },
     },
     get: {
-      method: 'GET' as const,
-      path: '/api/projects/:id' as const,
+      method: "GET" as const,
+      path: "/api/projects/:id" as const,
       responses: {
-        200: z.custom<typeof projects.$inferSelect>(),
+        200: z.any(),
         404: errorSchemas.notFound,
       },
     },
   },
   tasks: {
     list: {
-      method: 'GET' as const,
-      path: '/api/projects/:projectId/tasks' as const,
+      method: "GET" as const,
+      path: "/api/projects/:projectId/tasks" as const,
       responses: {
-        200: z.array(z.custom<typeof tasks.$inferSelect>()),
+        200: z.array(z.any()),
       },
     },
     create: {
-      method: 'POST' as const,
-      path: '/api/projects/:projectId/tasks' as const,
-      input: insertTaskSchema.omit({ projectId: true }), // projectId from URL
+      method: "POST" as const,
+      path: "/api/projects/:projectId/tasks" as const,
+      input: insertTaskSchema.omit({ projectId: true }),
       responses: {
-        201: z.custom<typeof tasks.$inferSelect>(),
+        201: z.any(),
         400: errorSchemas.validation,
       },
     },
     update: {
-      method: 'PATCH' as const,
-      path: '/api/tasks/:id' as const,
+      method: "PATCH" as const,
+      path: "/api/tasks/:id" as const,
       input: insertTaskSchema.partial(),
       responses: {
-        200: z.custom<typeof tasks.$inferSelect>(),
+        200: z.any(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/tasks/:id" as const,
+      responses: {
+        204: z.void(),
         404: errorSchemas.notFound,
       },
     },
   },
   organization: {
     get: {
-      method: 'GET' as const,
-      path: '/api/organization' as const,
+      method: "GET" as const,
+      path: "/api/organization" as const,
       responses: {
-        200: z.custom<typeof organizations.$inferSelect>(),
+        200: z.any(),
       },
     },
     members: {
-      method: 'GET' as const,
-      path: '/api/organization/members' as const,
+      method: "GET" as const,
+      path: "/api/organization/members" as const,
       responses: {
-        200: z.array(z.custom<typeof users.$inferSelect>()),
+        200: z.array(z.any()),
       },
-    }
-  }
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

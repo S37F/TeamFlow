@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganization } from "@/hooks/use-organization";
+import { useNotifications } from "@/App";
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -21,12 +22,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { organization } = useOrganization();
+  const { notifications, unreadCount, markNotificationRead, clearNotifications } = useNotifications();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -36,7 +52,10 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const isActive = (path: string) => location === path;
+  const isActive = (path: string) => {
+    if (path === '/') return location === '/';
+    return location.startsWith(path);
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-card border-r border-border/50">
@@ -57,7 +76,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         </div>
         
         {navigation.map((item) => (
-          <Link key={item.name} href={item.href}>
+          <Link key={item.name} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
             <div className={`
               flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200
               ${isActive(item.href) 
@@ -127,10 +146,55 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
             <h2 className="text-lg font-semibold text-foreground">
               {navigation.find(n => isActive(n.href))?.name || 'Dashboard'}
             </h2>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <Bell className="w-5 h-5" />
-              </Button>
+            <div className="flex items-center gap-4" ref={notifRef}>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground relative"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px]">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Badge>
+                  )}
+                </Button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                      <span className="text-sm font-semibold">Notifications</span>
+                      {notifications.length > 0 && (
+                        <Button variant="ghost" size="sm" className="text-xs h-6" onClick={clearNotifications}>
+                          Clear all
+                        </Button>
+                      )}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <p className="text-sm text-muted-foreground px-4 py-6 text-center">No notifications yet</p>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`px-4 py-3 border-b border-border/50 text-sm cursor-pointer hover:bg-muted/50 transition-colors ${
+                              !n.read ? "bg-primary/5" : ""
+                            }`}
+                            onClick={() => markNotificationRead(n.id)}
+                          >
+                            <p className="font-medium text-foreground">{n.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(n.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">

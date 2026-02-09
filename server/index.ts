@@ -1,58 +1,70 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { validateEnv } from "./env";
+import { setupSecurityMiddleware } from "./middleware/security";
+import { setupHealthChecks } from "./middleware/health";
+import { setupCompression, metricsMiddleware } from "./middleware/performance";
+import { stopCleanupInterval } from "./middleware/auth";
+import { pool } from "./db";
+import { setupSocketIO } from "./socket";
+import logger from "./logger";
+
+// Validate environment variables before starting
+validateEnv();
 
 const app = express();
 const httpServer = createServer(app);
 
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
+// Trust proxy for correct IP detection behind Nginx/load balancer
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
 }
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+// Setup health check endpoints (before other middleware)
+setupHealthChecks(app);
 
-app.use(express.urlencoded({ extended: false }));
+// Setup compression middleware
+setupCompression(app);
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+// Setup security middleware (helmet, CORS, rate limiting)
+setupSecurityMiddleware(app);
 
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
+// Setup performance metrics middleware
+app.use(metricsMiddleware);
 
+// Body parsing with size limits
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+
+// Cookie parser for refresh tokens
+app.use(cookieParser());
+
+// Setup Socket.io
+setupSocketIO(httpServer);
+
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+    const logData = {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    };
 
-      log(logLine);
+    if (res.statusCode >= 400) {
+      logger.warn("Request completed with error", logData);
+    } else if (req.path.startsWith("/api")) {
+      logger.info("API request", logData);
     }
   });
 
@@ -62,22 +74,36 @@ app.use((req, res, next) => {
 (async () => {
   await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  // Global error handler
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
+    logger.error("Request error", {
+      error: err.message,
+      stack: err.stack,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      status,
+    });
 
     if (res.headersSent) {
-      return next(err);
+      return;
     }
 
-    return res.status(status).json({ message });
+    const errorResponse = {
+      error: process.env.NODE_ENV === "production" && status === 500 
+        ? "Internal Server Error" 
+        : message,
+      code: "INTERNAL_ERROR",
+      ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
+    };
+
+    return res.status(status).json(errorResponse);
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup static serving or Vite dev server
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -85,19 +111,49 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
+  httpServer.listen(port, "0.0.0.0", () => {
+    logger.info("Server started successfully", {
       port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
-})();
+      environment: process.env.NODE_ENV || "development",
+      nodeVersion: process.version,
+    });
+    console.log(`\n✅ Server running on http://localhost:${port}`);
+    console.log(`🏥 Health check: http://localhost:${port}/health`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}\n`);
+  });
+
+  // Graceful shutdown
+  const shutdown = async () => {
+    logger.info("Shutting down gracefully...");
+    
+    // Stop background intervals
+    stopCleanupInterval();
+    
+    httpServer.close(async () => {
+      logger.info("HTTP server closed");
+      
+      try {
+        await pool.end();
+        logger.info("Database pool closed");
+      } catch (err) {
+        logger.error("Error closing database pool", { error: err });
+      }
+      
+      process.exit(0);
+    });
+
+    // Force shutdown after 10 seconds
+    setTimeout(() => {
+      logger.error("Forced shutdown after timeout");
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+})().catch((err) => {
+  logger.error("Failed to start server", { error: err.message, stack: err.stack });
+  console.error("\n❌ Failed to start server:", err.message);
+  process.exit(1);
+});

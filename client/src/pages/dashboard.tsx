@@ -7,13 +7,37 @@ import { Link } from "wouter";
 import { LayoutShell } from "@/components/layout-shell";
 import { FolderKanban, CheckSquare, Users, ArrowRight, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/api";
+import type { Project } from "@shared/schema";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { organization, members, isLoading: orgLoading } = useOrganization();
   const { projects, isLoading: projectsLoading } = useProjects();
+  
+  // Fetch all org tasks for real stats
+  const { data: allTasks } = useQuery({
+    queryKey: ["/api/organization/tasks"],
+    queryFn: async () => {
+      const res = await authFetch("/api/organization/tasks");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const isLoading = orgLoading || projectsLoading;
+  
+  const completedCount = allTasks?.filter((t: any) => t.status === "done")?.length || 0;
+  const totalCount = allTasks?.length || 0;
+  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   if (isLoading) {
     return (
@@ -37,7 +61,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">
-              Good morning, {user?.username}
+              {getGreeting()}, {user?.username}
             </h1>
             <p className="text-muted-foreground mt-1">
               Here's what's happening in <span className="font-semibold text-foreground">{organization?.name}</span> today.
@@ -61,7 +85,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{projects?.length || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                +2 from last month
+                {totalCount} total tasks
               </p>
             </CardContent>
           </Card>
@@ -85,9 +109,9 @@ export default function Dashboard() {
               <CheckSquare className="h-4 w-4 text-emerald-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">128</div>
+              <div className="text-2xl font-bold">{completedCount}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                +14% completion rate
+                {completionRate}% completion rate
               </p>
             </CardContent>
           </Card>
@@ -105,7 +129,7 @@ export default function Dashboard() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects?.slice(0, 3).map((project) => (
+            {projects?.slice(0, 3).map((project: Project) => (
               <Link key={project.id} href={`/projects/${project.id}/tasks`}>
                 <Card className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-300 group">
                   <CardHeader>
