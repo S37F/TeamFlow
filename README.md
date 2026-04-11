@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white" alt="Express" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Render-Deploy-000000?logo=render&logoColor=white" alt="Render" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
 </p>
 
@@ -57,7 +57,7 @@ TeamFlow is a production-ready, multi-tenant SaaS application where organization
 | **Real-Time** | Socket.io |
 | **Validation** | Zod (shared schemas between client & server) |
 | **Testing** | Vitest (48 tests — server + client) |
-| **Deployment** | Docker, Railway, Vercel, Supabase |
+| **Deployment** | Render (API), Vercel (SPA), Supabase (Postgres) |
 
 ---
 
@@ -89,7 +89,7 @@ TeamFlow is a production-ready, multi-tenant SaaS application where organization
 ### Prerequisites
 
 - **Node.js** 20+
-- **PostgreSQL** 16+ (or use Docker)
+- **PostgreSQL** 16+ (local install or Supabase)
 
 ### 1. Clone & Install
 
@@ -126,26 +126,6 @@ npm run dev
 ```
 
 Open **http://localhost:5000** — register an account to get started.
-
----
-
-## Docker
-
-Run the full stack (app + PostgreSQL) with a single command:
-
-```bash
-# Start everything
-docker compose up -d --build
-
-# Push schema to the database
-npm run db:push
-
-# View logs
-docker compose logs -f app
-
-# Stop
-docker compose down
-```
 
 ---
 
@@ -239,9 +219,7 @@ TeamFlow/
 │   ├── schema.ts           # Drizzle table definitions + Zod schemas
 │   └── routes.ts           # Typed API route contracts
 ├── tests/                  # Test setup files
-├── docker-compose.yml      # Docker orchestration
-├── Dockerfile              # Multi-stage production build
-├── railway.json            # Railway build/start defaults
+├── render.yaml             # Render.com web service blueprint
 ├── vercel.json             # Vercel static SPA build
 ├── script/build.ts         # Production client + server bundle
 └── .env.example            # Environment template
@@ -251,30 +229,23 @@ TeamFlow/
 
 ## Deployment
 
-### Railway (API) + Vercel (frontend) + Supabase (Postgres)
+### Render (API) + Vercel (frontend) + Supabase (Postgres)
 
-1. **Supabase** — Create a project → **Project Settings → Database** → copy the **URI** connection string (use **Session mode** pooler or direct `5432` for a long-lived Railway server). Append `?sslmode=require` if not already present.
-2. **Railway** — New project → deploy this repo as a **Web** service. Set environment variables:
-   - `DATABASE_URL` — Supabase Postgres URI
-   - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — long random strings (32+ chars)
-   - `ALLOWED_ORIGINS` — your Vercel URL(s), e.g. `https://your-app.vercel.app` (comma-separated, no spaces required)
-   - `SERVE_STATIC=false` — API only; the SPA is on Vercel
-   - `REFRESH_COOKIE_SAME_SITE=none` — required so the refresh cookie is sent from the Vercel origin to the API
-   - `NODE_ENV=production` (often set automatically)
-3. After the first deploy, apply the schema (from your machine or a one-off job), for example:  
+1. **Supabase** — Create a project → **Project Settings → Database** → copy the **URI** connection string (direct `5432` or pooler is fine for a always-on Render web service). Append `?sslmode=require` if not already present.
+2. **Render** — In the [Render Dashboard](https://dashboard.render.com), create a **Blueprint** from this repo (or use [Render Deploy](https://render.com/deploy) with `render.yaml`). In the service **Environment** tab, set or confirm:
+   - `DATABASE_URL` — your Supabase Postgres URI (blueprint marks this `sync: false`; you paste it in the UI)
+   - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — the blueprint can generate these; you may replace them with your own 32+ character secrets
+   - `ALLOWED_ORIGINS` — your Vercel URL(s), e.g. `https://your-app.vercel.app` (comma-separated)
+   - `SERVE_STATIC` — `false` (SPA is on Vercel; included in blueprint)
+   - `REFRESH_COOKIE_SAME_SITE` — `none` (included in blueprint; required for cross-site cookies over HTTPS)
+   - `APP_URL` — optional; often your Render service URL, e.g. `https://teamflow-api.onrender.com`
+3. After the first deploy, apply the schema from your machine:  
    `DATABASE_URL="postgresql://…?sslmode=require" npx drizzle-kit push`
-4. **Vercel** — Import the same repo. Vercel reads `vercel.json` (`build:client`, output `dist/public`). Set **Environment Variables**:
-   - `VITE_API_URL` — your Railway public URL with **no** trailing slash, e.g. `https://your-api.up.railway.app`
-5. Redeploy Vercel after changing `VITE_API_URL`.
+4. **Vercel** — Import the same repo. Vercel uses `vercel.json` (`build:client`, output `dist/public`). Set **Environment Variables**:
+   - `VITE_API_URL` — your Render service URL with **no** trailing slash, e.g. `https://teamflow-api.onrender.com`
+5. Redeploy Vercel after changing `VITE_API_URL`, and ensure Render’s `ALLOWED_ORIGINS` includes your exact Vercel origin.
 
-**Notes:** Railway assigns `PORT` automatically. Both platforms must use **HTTPS** in production for `SameSite=None` cookies. Socket.io uses the same `ALLOWED_ORIGINS` and `VITE_API_URL` as the REST API.
-
-### Docker (Self-Hosted)
-
-```bash
-docker compose up -d --build
-npm run db:push
-```
+**Notes:** Render sets `PORT` for you. Use **HTTPS** URLs for both services so `SameSite=None` cookies work. Socket.io uses the same `ALLOWED_ORIGINS` and `VITE_API_URL` as the REST API. Free web services may spin down after inactivity (cold starts).
 
 ---
 
