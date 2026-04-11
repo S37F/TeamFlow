@@ -103,11 +103,9 @@ app.use((req, res, next) => {
     return res.status(status).json(errorResponse);
   });
 
-  // Setup static serving or Vite dev server (set SERVE_STATIC=false when the SPA is hosted elsewhere, e.g. Vercel)
+  // Setup static serving or Vite dev server
   if (process.env.NODE_ENV === "production") {
-    if (process.env.SERVE_STATIC !== "false") {
-      serveStatic(app);
-    }
+    serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);

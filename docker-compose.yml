@@ -1,0 +1,15 @@
+# Local development only — Postgres for TeamFlow (no production secrets here)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: teamflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d teamflow"]
+      interval: 3s
+      timeout: 5s
+      retries: 15

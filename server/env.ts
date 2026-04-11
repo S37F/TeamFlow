@@ -9,8 +9,6 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
   ALLOWED_ORIGINS: z.string().optional(),
   APP_URL: z.string().url().optional(),
-  /** Use `none` when the SPA is on another origin (e.g. Vercel) than the API (e.g. Render). Requires HTTPS. */
-  REFRESH_COOKIE_SAME_SITE: z.enum(["strict", "lax", "none"]).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

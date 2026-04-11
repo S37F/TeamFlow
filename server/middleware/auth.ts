@@ -151,30 +151,23 @@ export function requireRole(...roles: Array<"owner" | "admin" | "member">) {
 // Refresh token cookie configuration
 export const REFRESH_COOKIE_NAME = "teamflow_refresh";
 
-function refreshCookieBaseOptions(): {
-  httpOnly: boolean;
-  secure: boolean;
-  sameSite: "strict" | "lax" | "none";
-  path: string;
-} {
-  const raw = process.env.REFRESH_COOKIE_SAME_SITE;
-  const sameSite: "strict" | "lax" | "none" =
-    raw === "none" || raw === "lax" || raw === "strict" ? raw : "strict";
-  const secure =
-    sameSite === "none" ? true : process.env.NODE_ENV === "production";
-  return { httpOnly: true, secure, sameSite, path: "/api/auth" };
-}
-
 export function setRefreshCookie(res: Response, token: string): void {
-  const base = refreshCookieBaseOptions();
   res.cookie(REFRESH_COOKIE_NAME, token, {
-    ...base,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
     maxAge: REFRESH_TOKEN_EXPIRY_MS,
+    path: "/api/auth",
   });
 }
 
 export function clearRefreshCookie(res: Response): void {
-  res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieBaseOptions());
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/api/auth",
+  });
 }
 
 // Periodic cleanup — run every hour (skip in test environment)

@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAccessToken } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/api-base";
 import { api } from "@shared/routes";
 
 export interface Notification {
@@ -52,8 +51,7 @@ export function useSocket(isAuthenticated: boolean) {
     const token = getAccessToken();
     if (!token) return;
 
-    const origin = getApiBaseUrl() || window.location.origin;
-    const socket = io(origin, {
+    const socket = io(window.location.origin, {
       auth: { token },
       path: "/socket.io",
       reconnection: true,
