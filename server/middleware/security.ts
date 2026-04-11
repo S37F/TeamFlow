@@ -3,11 +3,17 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 
+function parseAllowedOrigins(): string[] | undefined {
+  const raw = process.env.ALLOWED_ORIGINS;
+  if (!raw?.trim()) return undefined;
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export function setupSecurityMiddleware(app: Express) {
   // Enable CORS with specific configuration
   const isDevelopment = process.env.NODE_ENV !== "production";
   const corsOptions = {
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || (
+    origin: parseAllowedOrigins() || (
       isDevelopment
         ? ["http://localhost:5000", "http://localhost:3000"]
         : []

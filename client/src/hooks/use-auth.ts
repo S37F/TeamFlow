@@ -3,6 +3,7 @@ import { api, type LoginRequest, type SignupRequest } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { setAccessToken, authFetch } from "@/lib/api";
+import { apiUrl } from "@/lib/api-base";
 
 export function useAuth() {
   const { toast } = useToast();
@@ -23,7 +24,7 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginRequest) => {
-      const res = await fetch(api.auth.login.path, {
+      const res = await fetch(apiUrl(api.auth.login.path), {
         method: api.auth.login.method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -59,7 +60,7 @@ export function useAuth() {
 
   const signupMutation = useMutation({
     mutationFn: async (data: SignupRequest) => {
-      const res = await fetch(api.auth.signup.path, {
+      const res = await fetch(apiUrl(api.auth.signup.path), {
         method: api.auth.signup.method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",

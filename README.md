@@ -57,7 +57,7 @@ TeamFlow is a production-ready, multi-tenant SaaS application where organization
 | **Real-Time** | Socket.io |
 | **Validation** | Zod (shared schemas between client & server) |
 | **Testing** | Vitest (48 tests — server + client) |
-| **Deployment** | Docker, Render.com |
+| **Deployment** | Docker, Railway, Vercel, Supabase |
 
 ---
 
@@ -241,7 +241,9 @@ TeamFlow/
 ├── tests/                  # Test setup files
 ├── docker-compose.yml      # Docker orchestration
 ├── Dockerfile              # Multi-stage production build
-├── render.yaml             # Render.com deployment blueprint
+├── railway.json            # Railway build/start defaults
+├── vercel.json             # Vercel static SPA build
+├── script/build.ts         # Production client + server bundle
 └── .env.example            # Environment template
 ```
 
@@ -249,15 +251,23 @@ TeamFlow/
 
 ## Deployment
 
-### Render.com (Recommended)
+### Railway (API) + Vercel (frontend) + Supabase (Postgres)
 
-The repo includes a `render.yaml` blueprint for one-click deployment:
+1. **Supabase** — Create a project → **Project Settings → Database** → copy the **URI** connection string (use **Session mode** pooler or direct `5432` for a long-lived Railway server). Append `?sslmode=require` if not already present.
+2. **Railway** — New project → deploy this repo as a **Web** service. Set environment variables:
+   - `DATABASE_URL` — Supabase Postgres URI
+   - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — long random strings (32+ chars)
+   - `ALLOWED_ORIGINS` — your Vercel URL(s), e.g. `https://your-app.vercel.app` (comma-separated, no spaces required)
+   - `SERVE_STATIC=false` — API only; the SPA is on Vercel
+   - `REFRESH_COOKIE_SAME_SITE=none` — required so the refresh cookie is sent from the Vercel origin to the API
+   - `NODE_ENV=production` (often set automatically)
+3. After the first deploy, apply the schema (from your machine or a one-off job), for example:  
+   `DATABASE_URL="postgresql://…?sslmode=require" npx drizzle-kit push`
+4. **Vercel** — Import the same repo. Vercel reads `vercel.json` (`build:client`, output `dist/public`). Set **Environment Variables**:
+   - `VITE_API_URL` — your Railway public URL with **no** trailing slash, e.g. `https://your-api.up.railway.app`
+5. Redeploy Vercel after changing `VITE_API_URL`.
 
-1. Fork this repo
-2. Go to [render.com/deploy](https://render.com/deploy)
-3. Connect your GitHub repo — Render auto-detects `render.yaml`
-4. Set `ALLOWED_ORIGINS` and `APP_URL` to your Render URL after deploy
-5. Push the schema: `DATABASE_URL="<external-url>?sslmode=require" npx drizzle-kit push`
+**Notes:** Railway assigns `PORT` automatically. Both platforms must use **HTTPS** in production for `SameSite=None` cookies. Socket.io uses the same `ALLOWED_ORIGINS` and `VITE_API_URL` as the REST API.
 
 ### Docker (Self-Hosted)
 
@@ -283,4 +293,4 @@ npm run db:push
 
 ## License
 
-[MIT](LICENSE)
+MIT

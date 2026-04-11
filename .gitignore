@@ -14,4 +14,3 @@ migrations/meta/
 .local/
 .env.dev.backup
 .env.*.backup
-fly.toml

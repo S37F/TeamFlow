@@ -10,14 +10,20 @@ interface AuthenticatedSocket extends Socket {
   user: JwtPayload;
 }
 
+function socketCorsOrigins(): string[] {
+  const raw = process.env.ALLOWED_ORIGINS;
+  if (raw?.trim()) {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return process.env.NODE_ENV !== "production"
+    ? ["http://localhost:5000", "http://localhost:3000"]
+    : [];
+}
+
 export function setupSocketIO(httpServer: HttpServer): SocketServer {
   io = new SocketServer(httpServer, {
     cors: {
-      origin: process.env.ALLOWED_ORIGINS?.split(",") || (
-        process.env.NODE_ENV !== "production"
-          ? ["http://localhost:5000", "http://localhost:3000"]
-          : []
-      ),
+      origin: socketCorsOrigins(),
       credentials: true,
     },
     path: "/socket.io",
