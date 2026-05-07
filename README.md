@@ -168,6 +168,36 @@ The server serves the Vite-built client from `dist/public` and the API on `PORT`
 
 ---
 
+## Free deployment (Neon + Render)
+
+This project is already structured for this stack (single Node service + PostgreSQL).
+
+1. Create a free Neon project and copy the pooled `DATABASE_URL`.
+2. Push this repository to GitHub.
+3. In Render, create a **Web Service** from the repo.
+4. Render should auto-detect `render.yaml`; otherwise set:
+   - Build command: `npm ci && npm run build`
+   - Start command: `npm start`
+5. Add environment variables in Render:
+   - `NODE_ENV=production`
+   - `DATABASE_URL=<your_neon_database_url>`
+   - `JWT_ACCESS_SECRET=<32+ chars>`
+   - `JWT_REFRESH_SECRET=<32+ chars>`
+   - `ALLOWED_ORIGINS=https://<your-service>.onrender.com`
+6. Deploy.
+7. Run schema sync once against Neon from your machine:
+   - `npm run db:push`
+
+After deployment:
+- `https://<your-service>.onrender.com/health`
+- `https://<your-service>.onrender.com/ready`
+
+Notes:
+- Keep frontend and backend on the same Render service for this codebase.
+- Free tier services may sleep and have cold starts.
+
+---
+
 ## Security
 
 JWT access + refresh tokens, scrypt passwords, rate limits on auth routes, Helmet, CORS, compression, structured logging, Zod validation, soft deletes.
