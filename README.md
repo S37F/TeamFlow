@@ -10,7 +10,8 @@
 
 <p align="center">
   <a href="#getting-started">Getting Started</a> &nbsp;&bull;&nbsp;
-  <a href="#api-reference">API</a>
+  <a href="#api-reference">API</a> &nbsp;&bull;&nbsp;
+  <a href="DEPLOY_CHECKLIST.md">Deploy Checklist</a>
 </p>
 
 <p align="center">
@@ -145,10 +146,11 @@ Auth uses Bearer access tokens and an httpOnly refresh cookie.
 ```
 TeamFlow/
 ├── client/           # React app
+├── config/           # Build/test/db config files
 ├── server/           # Express + Socket.io
 ├── shared/           # Drizzle schema + Zod + route types
 ├── tests/            # Vitest setup
-├── script/build.ts   # Production bundle
+├── script/build.ts   # Production bundle script
 ├── docker-compose.yml
 └── .env.example
 ```
