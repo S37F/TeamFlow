@@ -48,6 +48,15 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+function isPgUniqueViolation(err: unknown): boolean {
+  return Boolean(
+    err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+  );
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -64,27 +73,29 @@ export async function registerRoutes(
       }
 
       const hashedPassword = await hashPassword(data.password);
-      
-      const org = await storage.createOrganization({ name: data.organizationName });
-      const user = await storage.createUser({
+      const refreshToken = generateRefreshTokenValue();
+      const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const { organization: org, user } = await storage.createOrganizationOwnerWithSession({
+        organizationName: data.organizationName,
         username: data.username,
         password: hashedPassword,
-        role: "owner",
-        organizationId: org.id,
+        refreshToken,
+        refreshExpiresAt,
       });
 
       const { password, ...safeUser } = user;
       
       // Generate tokens
       const accessToken = generateAccessToken(user);
-      const refreshToken = generateRefreshTokenValue();
-      await storeRefreshToken(user.id, refreshToken);
       setRefreshCookie(res, refreshToken);
       
       logger.info("User registered", { userId: user.id, organizationId: org.id });
       
       res.status(201).json({ user: safeUser, accessToken });
     } catch (err) {
+      if (isPgUniqueViolation(err)) {
+        return res.status(400).json({ error: "Username already exists", code: "USERNAME_TAKEN" });
+      }
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: err.errors[0].message, code: "VALIDATION_ERROR" });
       }
@@ -526,6 +537,13 @@ export async function registerRoutes(
         role: z.enum(["member", "admin"]).default("member"),
       }).parse(req.body);
 
+      if (role === "admin" && authUser.role !== "owner") {
+        return res.status(403).json({
+          error: "Only the organization owner can invite admins",
+          code: "INSUFFICIENT_ROLE",
+        });
+      }
+
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ error: "Username already exists", code: "USERNAME_TAKEN" });
@@ -550,6 +568,9 @@ export async function registerRoutes(
       emitMemberJoined(authUser.organizationId, safeMember);
       res.status(201).json(safeMember);
     } catch (err) {
+      if (isPgUniqueViolation(err)) {
+        return res.status(400).json({ error: "Username already exists", code: "USERNAME_TAKEN" });
+      }
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: err.errors[0].message, code: "VALIDATION_ERROR" });
       }

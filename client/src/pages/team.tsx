@@ -49,6 +49,7 @@ export default function TeamPage() {
   const [invitePassword, setInvitePassword] = useState("");
   const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
   const [removingMember, setRemovingMember] = useState<any>(null);
+  const canInviteAdmin = user?.role === "owner";
 
   const inviteMember = useMutation({
     mutationFn: async (data: { username: string; password: string; role: string }) => {
@@ -96,7 +97,7 @@ export default function TeamPage() {
     inviteMember.mutate({
       username: inviteUsername,
       password: invitePassword,
-      role: inviteRole,
+      role: canInviteAdmin ? inviteRole : "member",
     });
   };
 
@@ -183,7 +184,7 @@ export default function TeamPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      {canInviteAdmin && <SelectItem value="admin">Admin</SelectItem>}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">

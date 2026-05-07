@@ -1,12 +1,13 @@
 import { db } from "./db";
 import { 
-  users, organizations, projects, tasks,
+  users, organizations, projects, tasks, refreshTokens,
   type User, type InsertUser, 
   type Organization, type InsertOrganization,
   type Project, type InsertProject,
   type Task, type InsertTask
 } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { createHash } from "crypto";
 
 export interface IStorage {
   // Auth & Users
@@ -19,6 +20,13 @@ export interface IStorage {
   
   // Organization
   createOrganization(org: InsertOrganization): Promise<Organization>;
+  createOrganizationOwnerWithSession(input: {
+    organizationName: string;
+    username: string;
+    password: string;
+    refreshToken: string;
+    refreshExpiresAt: Date;
+  }): Promise<{ organization: Organization; user: User }>;
   getOrganization(id: number): Promise<Organization | undefined>;
   getOrganizationMembers(orgId: number): Promise<User[]>;
   updateOrganization(id: number, updates: Partial<Organization>): Promise<Organization>;
@@ -88,6 +96,40 @@ export class DatabaseStorage implements IStorage {
   async createOrganization(insertOrg: InsertOrganization): Promise<Organization> {
     const [org] = await db.insert(organizations).values(insertOrg).returning();
     return org;
+  }
+
+  async createOrganizationOwnerWithSession(input: {
+    organizationName: string;
+    username: string;
+    password: string;
+    refreshToken: string;
+    refreshExpiresAt: Date;
+  }): Promise<{ organization: Organization; user: User }> {
+    return db.transaction(async (tx) => {
+      const [organization] = await tx
+        .insert(organizations)
+        .values({ name: input.organizationName })
+        .returning();
+
+      const [user] = await tx
+        .insert(users)
+        .values({
+          username: input.username,
+          password: input.password,
+          role: "owner",
+          organizationId: organization.id,
+        })
+        .returning();
+
+      const tokenHash = createHash("sha256").update(input.refreshToken).digest("hex");
+      await tx.insert(refreshTokens).values({
+        userId: user.id,
+        tokenHash,
+        expiresAt: input.refreshExpiresAt,
+      });
+
+      return { organization, user };
+    });
   }
 
   async getOrganization(id: number): Promise<Organization | undefined> {

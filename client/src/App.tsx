@@ -90,7 +90,7 @@ function Router() {
       </Route>
 
       <Route path="/tasks">
-        <ProtectedRoute component={Dashboard} />
+        <ProtectedRoute component={ProjectsPage} />
       </Route>
 
       <Route path="/team">

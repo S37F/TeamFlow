@@ -42,7 +42,7 @@ export default function SettingsPage() {
       });
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || "Failed to update profile");
+        throw new Error(error.error || "Failed to update profile");
       }
       return res.json();
     },
